@@ -211,3 +211,57 @@ export const getRevealRounds = query({
   args: {},
   handler: async () => Array.from(REVEAL_ROUNDS),
 });
+
+// Returns the active game a session is currently in (for rejoin after refresh)
+export const getActiveGameForSession = query({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const playerRows = await ctx.db
+      .query("players")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    for (const player of playerRows) {
+      const game = await ctx.db.get(player.gameId);
+      if (game && game.status !== "finished") {
+        return { gameId: game._id, code: game.code };
+      }
+    }
+    return null;
+  },
+});
+
+// Heartbeat – call every ~8s to mark the player as connected
+export const heartbeat = mutation({
+  args: { gameId: v.id("games"), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const player = await ctx.db
+      .query("players")
+      .withIndex("by_session_game", (q) =>
+        q.eq("sessionId", sessionId).eq("gameId", gameId),
+      )
+      .first();
+    if (player) {
+      await ctx.db.patch(player._id, { lastSeen: Date.now() });
+    }
+  },
+});
+
+// End game immediately (abandoned) – any player can trigger this
+export const endGame = mutation({
+  args: { gameId: v.id("games"), sessionId: v.string() },
+  handler: async (ctx, { gameId, sessionId }) => {
+    const game = await ctx.db.get(gameId);
+    if (!game || game.status === "finished") return;
+
+    const player = await ctx.db
+      .query("players")
+      .withIndex("by_session_game", (q) =>
+        q.eq("sessionId", sessionId).eq("gameId", gameId),
+      )
+      .first();
+    if (!player) throw new Error("Not in this game");
+
+    await ctx.db.patch(gameId, { status: "finished" });
+  },
+});

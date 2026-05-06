@@ -14,6 +14,7 @@ interface Player {
   isMrX: boolean;
   detectiveIndices: number[];
   isHost: boolean;
+  lastSeen?: number;
 }
 
 interface Props {
@@ -23,6 +24,13 @@ interface Props {
   currentDetectiveIdx: number;
   phase: string;
   sessionId: string;
+  now: number;
+  disconnectedMs: number;
+}
+
+function isDisconnected(player: Player, now: number, disconnectedMs: number): boolean {
+  if (!player.lastSeen) return false;
+  return now - player.lastSeen > disconnectedMs;
 }
 
 export default function PlayerPanel({
@@ -32,6 +40,8 @@ export default function PlayerPanel({
   currentDetectiveIdx,
   phase,
   sessionId,
+  now,
+  disconnectedMs,
 }: Props) {
   const mrxPlayer = players.find((p) => p.isMrX);
 
@@ -44,6 +54,9 @@ export default function PlayerPanel({
           <span className="player-name">{mrxPlayer?.name ?? "Mr. X"}</span>
           {mrxPlayer?.sessionId === sessionId && <span className="badge you">You</span>}
           {phase === "mrx" && <span className="badge turn">Moving</span>}
+          {mrxPlayer && isDisconnected(mrxPlayer, now, disconnectedMs) && (
+            <span className="badge reconnecting">Reconnecting…</span>
+          )}
         </div>
         {mrxPosition !== undefined && (
           <div className="player-position">Station {mrxPosition}</div>
@@ -73,6 +86,9 @@ export default function PlayerPanel({
                   <span className="controller-name">
                     {controller.name}
                     {isMe && <span className="badge you">You</span>}
+                    {isDisconnected(controller, now, disconnectedMs) && (
+                      <span className="badge reconnecting">Reconnecting…</span>
+                    )}
                   </span>
                 )}
                 {isMyTurn && <span className="badge turn">Moving</span>}

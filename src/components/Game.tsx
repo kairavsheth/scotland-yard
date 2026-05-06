@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -8,6 +8,9 @@ import type { Transport } from "../data/board";
 import GameBoard from "./GameBoard";
 import MrXLog from "./MrXLog";
 import PlayerPanel from "./PlayerPanel";
+
+const HEARTBEAT_MS = 8_000;
+const DISCONNECTED_MS = 16_000; // lastSeen older than this → "reconnecting"
 
 interface Props {
   gameId: Id<"games">;
@@ -23,6 +26,8 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const moveMrX = useMutation(api.moves.moveMrX);
   const moveDetective = useMutation(api.moves.moveDetective);
   const skipDetective = useMutation(api.moves.skipDetective);
+  const endGameMutation = useMutation(api.games.endGame);
+  const heartbeatMutation = useMutation(api.games.heartbeat);
 
   const [selectedMrXTarget, setSelectedMrXTarget] = useState<number | null>(null);
   const [selectedTransport, setSelectedTransport] = useState<string>("");
@@ -31,9 +36,36 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const [selectedDetTransport, setSelectedDetTransport] = useState<string>("");
   const [mrxAssign, setMrxAssign] = useState<string>("");
   const [actionError, setActionError] = useState("");
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+
+  // ─── Heartbeat ────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!gameState || gameState.status !== "playing") return;
+    heartbeatMutation({ gameId, sessionId }).catch(() => {});
+    const id = setInterval(() => {
+      heartbeatMutation({ gameId, sessionId }).catch(() => {});
+    }, HEARTBEAT_MS);
+    return () => clearInterval(id);
+  }, [gameId, sessionId, gameState?.status]);
 
   if (!gameState) {
     return <div className="loading">Loading…</div>;
+  }
+
+  // Player not found in game (session expired / wrong link)
+  if (!gameState.me) {
+    return (
+      <div className="lobby">
+        <div className="lobby-card">
+          <div className="lobby-header">
+            <div className="logo">🔍</div>
+            <h1>Session not found</h1>
+            <p className="subtitle">This session is no longer active.</p>
+          </div>
+          <button className="btn btn-primary" onClick={onLeave}>Back to Lobby</button>
+        </div>
+      </div>
+    );
   }
 
   const {
@@ -42,11 +74,20 @@ export default function Game({ gameId, code, onLeave }: Props) {
     mrxDoubleMoveTickets, players, me,
   } = gameState;
 
-  const isMrX = me?.isMrX ?? false;
-  const isHost = me?.isHost ?? false;
-  const myDetectives = me?.detectiveIndices ?? [];
-  const isMyDetectiveTurn =
-    phase === "detectives" && myDetectives.includes(currentDetectiveIdx);
+  const now = Date.now();
+  const isMrX = me.isMrX;
+  const isHost = me.isHost;
+  const myDetectives = me.detectiveIndices;
+  const isMyDetectiveTurn = phase === "detectives" && myDetectives.includes(currentDetectiveIdx);
+
+  async function handleEndGame() {
+    try {
+      await endGameMutation({ gameId, sessionId });
+      onLeave();
+    } catch (e: unknown) {
+      setActionError(e instanceof Error ? e.message : "Failed to end game");
+    }
+  }
 
   // ─── Lobby ───────────────────────────────────────────────────────────────────
 
@@ -113,17 +154,30 @@ export default function Game({ gameId, code, onLeave }: Props) {
   // ─── Finished ────────────────────────────────────────────────────────────────
 
   if (status === "finished") {
+    const wasAbandoned = !winner;
     return (
       <div className="finished-screen">
         <div className="finished-card">
-          <div className="winner-icon">{winner === "mrx" ? "🎭" : "🕵️"}</div>
-          <h1>{winner === "mrx" ? "Mr. X Escaped!" : "Detectives Win!"}</h1>
+          <div className="winner-icon">
+            {wasAbandoned ? "🏳️" : winner === "mrx" ? "🎭" : "🕵️"}
+          </div>
+          <h1>
+            {wasAbandoned
+              ? "Game Ended"
+              : winner === "mrx"
+              ? "Mr. X Escaped!"
+              : "Detectives Win!"}
+          </h1>
           <p>
-            {winner === "mrx"
+            {wasAbandoned
+              ? "The game was ended by a player."
+              : winner === "mrx"
               ? "Mr. X successfully evaded capture for 22 rounds."
               : "Mr. X was caught!"}
           </p>
-          <p className="mrx-reveal">Mr. X was at station <strong>{mrxPosition}</strong></p>
+          {mrxPosition && (
+            <p className="mrx-reveal">Mr. X was at station <strong>{mrxPosition}</strong></p>
+          )}
           <MrXLog log={mrxLog ?? []} showAll />
           <button className="btn btn-primary" onClick={onLeave}>Back to Lobby</button>
         </div>
@@ -225,9 +279,24 @@ export default function Game({ gameId, code, onLeave }: Props) {
           currentDetectiveIdx={currentDetectiveIdx}
           phase={phase}
           sessionId={sessionId}
+          now={now}
+          disconnectedMs={DISCONNECTED_MS}
         />
 
-        <button className="btn btn-ghost btn-sm" onClick={onLeave}>Leave</button>
+        {/* End game button with confirmation */}
+        {showEndConfirm ? (
+          <div className="end-confirm">
+            <p>End the game for everyone?</p>
+            <div className="end-confirm-actions">
+              <button className="btn btn-danger" onClick={handleEndGame}>Yes, End Game</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowEndConfirm(false)}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button className="btn btn-ghost btn-sm end-game-btn" onClick={() => setShowEndConfirm(true)}>
+            End Game
+          </button>
+        )}
       </aside>
 
       {/* Main board */}

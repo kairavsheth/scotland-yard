@@ -67,6 +67,11 @@ html, body, #root {
 .btn-ghost:hover:not(:disabled) { color: var(--text); border-color: var(--text2); }
 .btn-sm { padding: 0.3rem 0.75rem; font-size: 0.8rem; }
 
+.btn-danger {
+  background: #dc2626; color: #fff;
+}
+.btn-danger:hover:not(:disabled) { background: #b91c1c; }
+
 /* Transport buttons */
 .transport-btn {
   border: 2px solid transparent;
@@ -95,6 +100,7 @@ html, body, #root {
 .badge.host { background: #7c3aed; color: #fff; }
 .badge.you { background: #0ea5e9; color: #fff; }
 .badge.turn { background: #16a34a; color: #fff; animation: pulse 1s infinite; }
+.badge.reconnecting { background: #b45309; color: #fff; animation: pulse 1.5s infinite; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -418,6 +424,18 @@ html, body, #root {
 
 .position-cell .revealed { color: #f0c040; font-size: 0.9rem; }
 .position-cell .hidden-pos { color: var(--text2); font-style: italic; }
+
+/* ─── End game confirm ───────────────────────────────────────────────────── */
+.end-confirm {
+  background: var(--bg3); border: 1px solid #dc2626;
+  border-radius: var(--radius); padding: 0.75rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.end-confirm p { color: var(--text); }
+.end-confirm-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+.end-game-btn { width: 100%; margin-top: auto; }
 
 /* ─── Finished screen ────────────────────────────────────────────────────── */
 .finished-screen {

@@ -9,21 +9,19 @@ export default defineSchema({
       v.literal("playing"),
       v.literal("finished"),
     ),
-    round: v.number(), // 1-22
+    round: v.number(),
     phase: v.union(v.literal("mrx"), v.literal("detectives")),
-    currentDetectiveIdx: v.number(), // 0-4
-    doubleMovePending: v.boolean(), // Mr. X used double-move, second move pending
+    currentDetectiveIdx: v.number(),
+    doubleMovePending: v.boolean(),
     winner: v.optional(v.union(v.literal("mrx"), v.literal("detectives"))),
-    mrxPosition: v.number(), // SECRET – only returned to Mr. X session
-    // Mr. X travel log – shown to all detectives (transport visible, position only at reveal rounds)
+    mrxPosition: v.number(),
     mrxLog: v.array(
       v.object({
         round: v.number(),
-        transport: v.string(), // 'taxi' | 'bus' | 'underground' | 'black' | 'ferry'
-        position: v.optional(v.number()), // revealed at rounds 3, 8, 13, 18
+        transport: v.string(),
+        position: v.optional(v.number()),
       }),
     ),
-    // 5 detectives stored inline
     detectives: v.array(
       v.object({
         position: v.number(),
@@ -41,10 +39,11 @@ export default defineSchema({
     sessionId: v.string(),
     name: v.string(),
     isMrX: v.boolean(),
-    // Which of the 5 detectives (indices 0-4) this player controls
     detectiveIndices: v.array(v.number()),
     isHost: v.boolean(),
+    lastSeen: v.optional(v.number()), // ms timestamp for connection tracking
   })
     .index("by_game", ["gameId"])
-    .index("by_session_game", ["sessionId", "gameId"]),
+    .index("by_session_game", ["sessionId", "gameId"])
+    .index("by_session", ["sessionId"]),
 });
