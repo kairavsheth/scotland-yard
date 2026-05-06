@@ -18,7 +18,7 @@ interface Props {
   detectives: DetectiveState[];
   mrxPosition?: number;
   moveHighlights: MoveHighlight[];
-  onStationClick: (stationId: number, transport?: string) => void;
+  onStationClick: (stationId: number) => void;
   selectedStation: number | null;
 }
 
@@ -185,7 +185,7 @@ export default function GameBoard({
               className="station"
               onClick={() => {
                 if (isHighlighted) {
-                  onStationClick(id, highlights?.[0]);
+                  onStationClick(id);
                 }
               }}
               style={{ cursor: isHighlighted ? "pointer" : "default" }}

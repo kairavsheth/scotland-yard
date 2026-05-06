@@ -27,6 +27,8 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const [selectedMrXTarget, setSelectedMrXTarget] = useState<number | null>(null);
   const [selectedTransport, setSelectedTransport] = useState<string>("");
   const [useDoubleMove, setUseDoubleMove] = useState(false);
+  const [selectedDetTarget, setSelectedDetTarget] = useState<number | null>(null);
+  const [selectedDetTransport, setSelectedDetTransport] = useState<string>("");
   const [mrxAssign, setMrxAssign] = useState<string>("");
   const [actionError, setActionError] = useState("");
 
@@ -153,11 +155,16 @@ export default function Game({ gameId, code, onLeave }: Props) {
     }
   }
 
-  async function handleDetMove(stationId: number, transport: string) {
-    if (myDetIndex === null) return;
+  async function handleDetMove() {
+    if (myDetIndex === null || !selectedDetTarget || !selectedDetTransport) {
+      setActionError("Pick a station and transport type");
+      return;
+    }
     setActionError("");
     try {
-      await moveDetective({ gameId, sessionId, detectiveIdx: myDetIndex, targetStation: stationId, transport });
+      await moveDetective({ gameId, sessionId, detectiveIdx: myDetIndex, targetStation: selectedDetTarget, transport: selectedDetTransport });
+      setSelectedDetTarget(null);
+      setSelectedDetTransport("");
     } catch (e: unknown) {
       setActionError(e instanceof Error ? e.message : "Move failed");
     }
@@ -236,15 +243,16 @@ export default function Game({ gameId, code, onLeave }: Props) {
           detectives={detectives ?? []}
           mrxPosition={isMrX ? mrxPosition : undefined}
           moveHighlights={moveHighlights}
-          onStationClick={(stationId, transport) => {
+          onStationClick={(stationId) => {
             if (isMrXTurn) {
               setSelectedMrXTarget(stationId);
-              if (transport) setSelectedTransport(transport);
-            } else if (isMyDetectiveTurn && transport) {
-              handleDetMove(stationId, transport);
+              setSelectedTransport("");
+            } else if (isMyDetectiveTurn) {
+              setSelectedDetTarget(stationId);
+              setSelectedDetTransport("");
             }
           }}
-          selectedStation={isMrXTurn ? selectedMrXTarget : null}
+          selectedStation={isMrXTurn ? selectedMrXTarget : isMyDetectiveTurn ? selectedDetTarget : null}
         />
 
         {/* Mr. X move controls */}
@@ -302,16 +310,55 @@ export default function Game({ gameId, code, onLeave }: Props) {
             <div className="move-controls-inner">
               <p>
                 Detective {currentDetectiveIdx + 1} at station{" "}
-                <strong>{myDet?.position}</strong> — click a highlighted station to move
+                <strong>{myDet?.position}</strong>
+                {selectedDetTarget === null && " — click a highlighted station"}
               </p>
-              <div className="ticket-display">
-                <span>🟡 Taxi: {myDet?.taxi}</span>
-                <span>🟢 Bus: {myDet?.bus}</span>
-                <span>🔴 Underground: {myDet?.underground}</span>
+
+              {selectedDetTarget !== null && (
+                <div className="transport-selector">
+                  <span>Move to <strong>{selectedDetTarget}</strong> via:</span>
+                  {(["taxi", "bus", "underground"] as const).map((t) => {
+                    const reachable = detReachable.get(t)?.includes(selectedDetTarget) ?? false;
+                    const hasTicket = t === "taxi" ? (myDet?.taxi ?? 0) > 0
+                      : t === "bus" ? (myDet?.bus ?? 0) > 0
+                      : (myDet?.underground ?? 0) > 0;
+                    if (!reachable || !hasTicket) return null;
+                    return (
+                      <button
+                        key={t}
+                        className={`btn transport-btn ${t} ${selectedDetTransport === t ? "selected" : ""}`}
+                        onClick={() => setSelectedDetTransport(t)}
+                      >
+                        {TRANSPORT_LABELS[t]}
+                      </button>
+                    );
+                  })}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => { setSelectedDetTarget(null); setSelectedDetTransport(""); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <div className="move-actions">
+                <div className="ticket-display">
+                  <span>🟡 {myDet?.taxi}</span>
+                  <span>🟢 {myDet?.bus}</span>
+                  <span>🔴 {myDet?.underground}</span>
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleDetMove}
+                  disabled={!selectedDetTarget || !selectedDetTransport}
+                >
+                  Confirm Move
+                </button>
+                <button className="btn btn-ghost btn-sm" onClick={handleSkip}>
+                  Skip
+                </button>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={handleSkip}>
-                Skip (trapped)
-              </button>
             </div>
           </div>
         )}
