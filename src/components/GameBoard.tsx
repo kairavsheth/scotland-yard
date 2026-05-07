@@ -22,20 +22,22 @@ interface Props {
   selectedStation: number | null;
 }
 
-const PAD = 18;
+const PAD = 24;
 const VB = `${-PAD} ${-PAD} ${BOARD_WIDTH + PAD * 2} ${BOARD_HEIGHT + PAD * 2}`;
 
-// Pre-build edge list for rendering (deduplicated)
-const EDGES_TO_DRAW = (() => {
+// Build per-transport edge lists (deduplicated) for layered rendering
+const EDGES_BY_TYPE = (() => {
+  const result: Record<Transport, { a: number; b: number }[]> = {
+    taxi: [], bus: [], underground: [], water: [],
+  };
   const seen = new Set<string>();
-  const result: { a: number; b: number; t: Transport }[] = [];
   for (const [id, station] of BOARD) {
     for (const t of ["taxi", "bus", "underground", "water"] as Transport[]) {
       for (const nb of station[t]) {
         const key = [Math.min(id, nb), Math.max(id, nb), t].join("-");
         if (!seen.has(key)) {
           seen.add(key);
-          result.push({ a: id, b: nb, t });
+          result[t].push({ a: id, b: nb });
         }
       }
     }
@@ -54,7 +56,6 @@ export default function GameBoard({
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0, vx: 0, vy: 0, vw: 0, vh: 0 });
 
-  // Build highlight map: stationId -> best transport to show
   const highlightMap = useMemo(() => {
     const m = new Map<number, string[]>();
     for (const h of moveHighlights) {
@@ -64,7 +65,6 @@ export default function GameBoard({
     return m;
   }, [moveHighlights]);
 
-  // Detective positions map: stationId -> [detective indices]
   const detMap = useMemo(() => {
     const m = new Map<number, number[]>();
     detectives.forEach((d, i) => {
@@ -74,14 +74,13 @@ export default function GameBoard({
     return m;
   }, [detectives]);
 
-  // Pan handlers
   function parseVB(vb: string) {
     const [x, y, w, h] = vb.split(" ").map(Number);
     return { x, y, w, h };
   }
 
   function onMouseDown(e: React.MouseEvent<SVGSVGElement>) {
-    if ((e.target as SVGElement).closest(".station")) return; // don't pan on station clicks
+    if ((e.target as SVGElement).closest(".station")) return;
     const { x, y, w, h } = parseVB(viewBox);
     setIsPanning(true);
     setPanStart({ x: e.clientX, y: e.clientY, vx: x, vy: y, vw: w, vh: h });
@@ -104,7 +103,6 @@ export default function GameBoard({
     const factor = e.deltaY > 0 ? 1.12 : 0.88;
     const newW = Math.min(Math.max(w * factor, 200), BOARD_WIDTH * 3);
     const newH = Math.min(Math.max(h * factor, 150), BOARD_HEIGHT * 3);
-    // Zoom toward center
     const cx = x + w / 2;
     const cy = y + h / 2;
     setViewBox(`${cx - newW / 2} ${cy - newH / 2} ${newW} ${newH}`);
@@ -122,34 +120,87 @@ export default function GameBoard({
         onWheel={onWheel}
         style={{ cursor: isPanning ? "grabbing" : "grab" }}
       >
+        <defs>
+          <filter id="glow-red" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="glow-blue" x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+          <filter id="glow-node-red" x="-80%" y="-80%" width="260%" height="260%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#f43f5e" floodOpacity="0.65" />
+          </filter>
+          <filter id="glow-node-blue" x="-80%" y="-80%" width="260%" height="260%">
+            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#38bdf8" floodOpacity="0.65" />
+          </filter>
+          <filter id="glow-highlight" x="-100%" y="-100%" width="300%" height="300%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+          </filter>
+        </defs>
+
         {/* Background */}
         <rect
           x={-PAD} y={-PAD}
           width={BOARD_WIDTH + PAD * 2}
           height={BOARD_HEIGHT + PAD * 2}
-          fill="#1a1a2e"
+          fill="#0b0b1a"
         />
 
-        {/* Edges */}
-        {EDGES_TO_DRAW.map(({ a, b, t }) => {
-          const sa = BOARD.get(a)!;
-          const sb = BOARD.get(b)!;
-          const color = TRANSPORT_COLORS[t];
-          const isWater = t === "water";
-          return (
-            <line
-              key={`${a}-${b}-${t}`}
-              x1={sa.x} y1={sa.y}
-              x2={sb.x} y2={sb.y}
-              stroke={color}
-              strokeWidth={isWater ? 2.5 : t === "underground" ? 2 : t === "bus" ? 1.5 : 1}
-              strokeOpacity={isWater ? 0.9 : t === "underground" ? 0.7 : 0.4}
-              strokeDasharray={isWater ? "6 3" : t === "underground" ? "none" : "none"}
-            />
-          );
-        })}
+        {/* ── Edges — layered: taxi at bottom, water on top ── */}
 
-        {/* Stations */}
+        {/* Taxi: very dim connectivity web */}
+        <g>
+          {EDGES_BY_TYPE.taxi.map(({ a, b }) => {
+            const sa = BOARD.get(a)!, sb = BOARD.get(b)!;
+            return (
+              <line key={`${a}-${b}`}
+                x1={sa.x} y1={sa.y} x2={sb.x} y2={sb.y}
+                stroke={TRANSPORT_COLORS.taxi} strokeWidth={0.7} strokeOpacity={0.14} />
+            );
+          })}
+        </g>
+
+        {/* Bus: clearly visible */}
+        <g>
+          {EDGES_BY_TYPE.bus.map(({ a, b }) => {
+            const sa = BOARD.get(a)!, sb = BOARD.get(b)!;
+            return (
+              <line key={`${a}-${b}`}
+                x1={sa.x} y1={sa.y} x2={sb.x} y2={sb.y}
+                stroke={TRANSPORT_COLORS.bus} strokeWidth={1.5} strokeOpacity={0.55} />
+            );
+          })}
+        </g>
+
+        {/* Underground: bright with red glow */}
+        <g filter="url(#glow-red)">
+          {EDGES_BY_TYPE.underground.map(({ a, b }) => {
+            const sa = BOARD.get(a)!, sb = BOARD.get(b)!;
+            return (
+              <line key={`${a}-${b}`}
+                x1={sa.x} y1={sa.y} x2={sb.x} y2={sb.y}
+                stroke={TRANSPORT_COLORS.underground} strokeWidth={2.5} strokeOpacity={0.85} />
+            );
+          })}
+        </g>
+
+        {/* Ferry: dashed with blue glow */}
+        <g filter="url(#glow-blue)">
+          {EDGES_BY_TYPE.water.map(({ a, b }) => {
+            const sa = BOARD.get(a)!, sb = BOARD.get(b)!;
+            return (
+              <line key={`${a}-${b}`}
+                x1={sa.x} y1={sa.y} x2={sb.x} y2={sb.y}
+                stroke={TRANSPORT_COLORS.water} strokeWidth={2.5} strokeOpacity={0.9}
+                strokeDasharray="8 4" />
+            );
+          })}
+        </g>
+
+        {/* ── Stations ── */}
         {Array.from(BOARD.values()).map((station) => {
           const { id, x, y } = station;
           const highlights = highlightMap.get(id);
@@ -158,86 +209,142 @@ export default function GameBoard({
           const isMrXHere = mrxPosition === id;
           const detHere = detMap.get(id);
 
-          // Determine station ring color based on type
           const hasUnderground = station.underground.length > 0;
           const hasBus = station.bus.length > 0;
           const hasWater = station.water.length > 0;
 
-          const ringColor = hasWater
-            ? TRANSPORT_COLORS.water
-            : hasUnderground
-            ? TRANSPORT_COLORS.underground
-            : hasBus
-            ? TRANSPORT_COLORS.bus
-            : TRANSPORT_COLORS.taxi;
+          // Visual tier determines size, color, glow
+          const tier = hasWater ? "water"
+            : hasUnderground ? "underground"
+            : hasBus ? "bus"
+            : "taxi";
+          const primaryColor = TRANSPORT_COLORS[tier];
 
-          const baseR = hasUnderground || hasWater ? 7 : hasBus ? 5.5 : 4;
+          const baseR = tier === "water" || tier === "underground" ? 9
+            : tier === "bus" ? 7 : 5;
+          const fontSize = tier === "water" || tier === "underground" ? 5.5
+            : tier === "bus" ? 4.5 : 4;
 
-          // Highlight glow color
-          const highlightColor =
-            highlights && highlights.length > 0
-              ? TRANSPORT_COLORS[highlights[0] as keyof typeof TRANSPORT_COLORS] ?? "#fff"
-              : "#fff";
+          const nodeFill = isSelected ? "#ffffff"
+            : tier === "water" ? "#050d1e"
+            : tier === "underground" ? "#1e0508"
+            : tier === "bus" ? "#051a09"
+            : "#0e0d1c";
+
+          const ringColor = isHighlighted
+            ? (TRANSPORT_COLORS[highlights![0] as keyof typeof TRANSPORT_COLORS] ?? "#fff")
+            : primaryColor;
+          const ringWidth = isSelected ? 2.5
+            : isHighlighted ? 2.2
+            : tier === "water" || tier === "underground" ? 2
+            : tier === "bus" ? 1.6 : 1.2;
+
+          // Pips indicate non-taxi transports available at this station
+          const pips: string[] = [];
+          if (hasUnderground) pips.push(TRANSPORT_COLORS.underground);
+          if (hasBus) pips.push(TRANSPORT_COLORS.bus);
+          if (hasWater) pips.push(TRANSPORT_COLORS.water);
+
+          // Approx label background size
+          const numLen = id.toString().length;
+          const labelW = numLen * fontSize * 0.62 + 2;
+          const labelH = fontSize * 1.1;
 
           return (
             <g
               key={id}
               className="station"
-              onClick={() => {
-                if (isHighlighted) {
-                  onStationClick(id);
-                }
-              }}
+              onClick={() => { if (isHighlighted) onStationClick(id); }}
               style={{ cursor: isHighlighted ? "pointer" : "default" }}
             >
-              {/* Glow for highlighted */}
+              {/* Highlight glow pulse */}
               {isHighlighted && (
-                <circle
-                  cx={x} cy={y}
-                  r={baseR + 7}
-                  fill={highlightColor}
-                  opacity={0.25 + (isSelected ? 0.2 : 0)}
-                />
+                <circle cx={x} cy={y} r={baseR + 10} fill={ringColor}
+                  opacity={isSelected ? 0.28 : 0.17}
+                  filter="url(#glow-highlight)" />
               )}
-              {/* Station circle */}
+
+              {/* Outer halo ring for underground/water — marks importance */}
+              {(tier === "underground" || tier === "water") && !isHighlighted && (
+                <circle cx={x} cy={y} r={baseR + 3} fill="none"
+                  stroke={primaryColor} strokeWidth={0.8} strokeOpacity={0.28} />
+              )}
+
+              {/* Station circle — underground/water get node glow */}
               <circle
-                cx={x} cy={y}
-                r={baseR}
-                fill={isSelected ? "#fff" : "#1a1a2e"}
-                stroke={isHighlighted ? highlightColor : ringColor}
-                strokeWidth={isSelected ? 2.5 : isHighlighted ? 2 : 1.5}
+                cx={x} cy={y} r={baseR}
+                fill={nodeFill}
+                stroke={ringColor}
+                strokeWidth={ringWidth}
+                filter={
+                  isHighlighted ? undefined
+                  : tier === "underground" ? "url(#glow-node-red)"
+                  : tier === "water" ? "url(#glow-node-blue)"
+                  : undefined
+                }
               />
-              {/* Station number */}
+
+              {/* Number — label background rect for contrast */}
+              <rect
+                x={x - labelW / 2} y={y - labelH / 2}
+                width={labelW} height={labelH}
+                rx={1.5} fill={nodeFill}
+                style={{ pointerEvents: "none" }}
+              />
               <text
-                x={x} y={y + 1}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={hasUnderground || hasWater ? 4.5 : 3.5}
-                fill={isSelected ? "#1a1a2e" : "#ccc"}
+                x={x} y={y + 0.5}
+                textAnchor="middle" dominantBaseline="middle"
+                fontSize={fontSize} fontWeight="700"
+                fontFamily="'Courier New', Courier, monospace"
+                fill={isSelected ? "#0b0b1a" : "#eeeef8"}
                 style={{ pointerEvents: "none", userSelect: "none" }}
               >
                 {id}
               </text>
 
-              {/* Detectives */}
+              {/* Transport mode pips below the label */}
+              {pips.length > 0 && (
+                <g style={{ pointerEvents: "none" }}>
+                  {pips.map((color, i) => (
+                    <circle
+                      key={i}
+                      cx={x + (i - (pips.length - 1) / 2) * 3.8}
+                      cy={y + baseR + 4.5}
+                      r={1.8}
+                      fill={color}
+                      opacity={0.9}
+                    />
+                  ))}
+                </g>
+              )}
+
+              {/* Detectives — numbered tokens */}
               {detHere?.map((di, offset) => (
-                <circle
-                  key={di}
-                  cx={x + (offset - (detHere.length - 1) / 2) * 6}
-                  cy={y - baseR - 5}
-                  r={4}
-                  fill={DETECTIVE_COLORS[di]}
-                  stroke="#fff"
-                  strokeWidth={1}
-                />
+                <g key={di}>
+                  <circle
+                    cx={x + (offset - (detHere.length - 1) / 2) * 8}
+                    cy={y - baseR - 7}
+                    r={5}
+                    fill={DETECTIVE_COLORS[di]}
+                    stroke="#fff" strokeWidth={1.2}
+                  />
+                  <text
+                    x={x + (offset - (detHere.length - 1) / 2) * 8}
+                    y={y - baseR - 6.5}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={4.5} fontWeight="800" fill="#fff"
+                    style={{ pointerEvents: "none", userSelect: "none" }}
+                  >
+                    {di + 1}
+                  </text>
+                </g>
               ))}
 
               {/* Mr. X */}
               {isMrXHere && (
                 <text
-                  x={x} y={y - baseR - 5}
-                  textAnchor="middle"
-                  fontSize={10}
+                  x={x} y={y - baseR - 7}
+                  textAnchor="middle" fontSize={13}
                   style={{ pointerEvents: "none" }}
                 >
                   🎭
@@ -252,7 +359,14 @@ export default function GameBoard({
         <span style={{ color: TRANSPORT_COLORS.taxi }}>── Taxi</span>
         <span style={{ color: TRANSPORT_COLORS.bus }}>── Bus</span>
         <span style={{ color: TRANSPORT_COLORS.underground }}>── Underground</span>
-        <span style={{ color: TRANSPORT_COLORS.water }}>-- Ferry</span>
+        <span style={{ color: TRANSPORT_COLORS.water }}>╌╌ Ferry</span>
+        <span className="legend-divider">│</span>
+        <span className="legend-pips">
+          Dots:&nbsp;
+          <span className="legend-pip" style={{ background: TRANSPORT_COLORS.underground }} />U&nbsp;
+          <span className="legend-pip" style={{ background: TRANSPORT_COLORS.bus }} />B&nbsp;
+          <span className="legend-pip" style={{ background: TRANSPORT_COLORS.water }} />F
+        </span>
         <span className="legend-hint">Scroll to zoom · Drag to pan</span>
       </div>
     </div>

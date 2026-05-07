@@ -247,11 +247,11 @@ export const BOARD_HEIGHT = 1211;
 export const DETECTIVE_STARTS = [13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198];
 
 export const TRANSPORT_COLORS: Record<Transport | "black", string> = {
-  taxi: "#f0c040",
-  bus: "#40c060",
-  underground: "#e04040",
-  water: "#4080e0",
-  black: "#333333",
+  taxi: "#d4a820",
+  bus: "#22c55e",
+  underground: "#f43f5e",
+  water: "#38bdf8",
+  black: "#555566",
 };
 
 export const TRANSPORT_LABELS: Record<string, string> = {
