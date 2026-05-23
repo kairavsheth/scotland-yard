@@ -250,8 +250,11 @@ export default function Game({ gameId, code, onLeave }: Props) {
     }
   }
   if (isMyDetectiveTurn && myDet) {
+    const occupiedByDetective = new Set((detectives ?? []).map((d) => d.position));
     for (const [t, stations] of detReachable) {
-      stations.forEach((s: number) => moveHighlights.push({ station: s, transport: t }));
+      stations.forEach((s: number) => {
+        if (!occupiedByDetective.has(s)) moveHighlights.push({ station: s, transport: t });
+      });
     }
   }
 

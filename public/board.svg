@@ -11,7 +11,7 @@
   </rdf:RDF>
  </metadata>
  <g transform="translate(0 -582.42)">
-  <rect x="6.25" y="588.67" width="587.5" height="437.5" rx="25" ry="25" fill="#aaa" stroke="#000" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="12.5"/>
+  <rect x="6.25" y="588.67" width="587.5" height="437.5" rx="25" ry="25" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="bevel" stroke-width="5"/>
   <g fill="none">
    <path d="m587.5 794.92-143.75-1.1e-4s-15.007 0-28.871 5.7429-24.476 16.354-24.476 16.354l-18.306 18.306s-10.611 10.611-16.354 24.476-5.7429 28.871-5.7429 28.871v93.75s0 10.355-7.3223 17.678c-7.3223 7.3223-17.678 7.3223-17.678 7.3223l-237.5 1e-4s-5.1777 0-8.8388 3.6611-3.6612 8.8389-3.6612 8.8389" stroke="#08f" stroke-width="12.5"/>
    <g stroke="#aaa">
