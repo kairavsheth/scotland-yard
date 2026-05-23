@@ -1,5 +1,12 @@
 import { TRANSPORT_COLORS, TRANSPORT_LABELS } from "../data/board";
 
+const LOG_TICKET_SRC: Record<string, string> = {
+  taxi: "/taxi_ticket.svg",
+  bus: "/bus_ticket.svg",
+  underground: "/ug_ticket.svg",
+  black: "/black_ticket.svg",
+};
+
 interface LogEntry {
   round: number;
   transport: string;
@@ -53,16 +60,25 @@ export default function MrXLog({ log, showAll = false }: Props) {
               <tr key={i} className={isReveal ? "reveal-row" : ""}>
                 <td>{entry.round}</td>
                 <td>
-                  <span
-                    className="transport-chip"
-                    style={{
-                      background:
-                        TRANSPORT_COLORS[entry.transport as keyof typeof TRANSPORT_COLORS] ??
-                        "#555",
-                    }}
-                  >
-                    {icon} {label}
-                  </span>
+                  {LOG_TICKET_SRC[entry.transport] ? (
+                    <img
+                      src={LOG_TICKET_SRC[entry.transport]}
+                      className="log-ticket-img"
+                      alt={label}
+                      title={label}
+                    />
+                  ) : (
+                    <span
+                      className="transport-chip"
+                      style={{
+                        background:
+                          TRANSPORT_COLORS[entry.transport as keyof typeof TRANSPORT_COLORS] ??
+                          "#555",
+                      }}
+                    >
+                      {icon} {label}
+                    </span>
+                  )}
                 </td>
                 <td className="position-cell">
                   {showPos && entry.position !== undefined ? (

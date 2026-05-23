@@ -3,11 +3,12 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { getSessionId } from "../lib/session";
-import { getAllReachable, TRANSPORT_LABELS } from "../data/board";
+import { getAllReachable } from "../data/board";
 import type { Transport } from "../data/board";
 import GameBoard from "./GameBoard";
 import MrXLog from "./MrXLog";
 import PlayerPanel from "./PlayerPanel";
+import TicketCard from "./TicketCard";
 
 const HEARTBEAT_MS = 8_000;
 const DISCONNECTED_MS = 16_000; // lastSeen older than this → "reconnecting"
@@ -308,7 +309,6 @@ export default function Game({ gameId, code, onLeave }: Props) {
           <span className={`turn-label ${phase === "mrx" ? "mrx-turn" : "det-turn"}`}>
             {turnLabel()}
           </span>
-          {actionError && <span className="turn-error">{actionError}</span>}
         </div>
 
         <GameBoard
@@ -331,39 +331,42 @@ export default function Game({ gameId, code, onLeave }: Props) {
         {isMrXTurn && (
           <div className="move-controls">
             <div className="move-controls-inner">
-              {selectedMrXTarget !== null && (
-                <div className="transport-selector">
-                  <span>Move to <strong>{selectedMrXTarget}</strong> via:</span>
-                  {(["taxi", "bus", "underground", "black"] as const).map((t) => {
-                    const reachable =
-                      t === "black"
-                        ? ((mrxBlackTickets ?? 0) > 0 && [...mrxReachable.values()].flat().includes(selectedMrXTarget))
-                        : mrxReachable.get(t as Transport)?.includes(selectedMrXTarget) ?? false;
-                    if (!reachable) return null;
-                    return (
-                      <button
-                        key={t}
-                        className={`btn transport-btn ${t} ${selectedTransport === t ? "selected" : ""}`}
-                        onClick={() => setSelectedTransport(t)}
-                      >
-                        {TRANSPORT_LABELS[t]}
-                        {t === "black" && ` (${mrxBlackTickets})`}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="transport-selector">
+                {selectedMrXTarget !== null ? (
+                  <>
+                    <span className="move-to-label">Station <strong>{selectedMrXTarget}</strong>:</span>
+                    {(["taxi", "bus", "underground", "black"] as const).map((t) => {
+                      const reachable =
+                        t === "black"
+                          ? (mrxBlackTickets ?? 0) > 0 && [...mrxReachable.values()].flat().includes(selectedMrXTarget)
+                          : mrxReachable.get(t as Transport)?.includes(selectedMrXTarget) ?? false;
+                      if (!reachable) return null;
+                      return (
+                        <TicketCard
+                          key={t}
+                          type={t}
+                          count={t === "black" ? (mrxBlackTickets ?? 0) : undefined}
+                          selected={selectedTransport === t}
+                          onClick={() => setSelectedTransport(t)}
+                        />
+                      );
+                    })}
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedMrXTarget(null); setSelectedTransport(""); }}>Cancel</button>
+                  </>
+                ) : (
+                  <span className="move-prompt">Click a highlighted station to move</span>
+                )}
+              </div>
               <div className="move-actions">
                 {(mrxDoubleMoveTickets ?? 0) > 0 && !doubleMovePending && (
-                  <label className="double-move-toggle">
-                    <input
-                      type="checkbox"
-                      checked={useDoubleMove}
-                      onChange={(e) => setUseDoubleMove(e.target.checked)}
-                    />
-                    Use Double Move ({mrxDoubleMoveTickets} left)
-                  </label>
+                  <TicketCard
+                    type="2x"
+                    count={mrxDoubleMoveTickets ?? 0}
+                    selected={useDoubleMove}
+                    onClick={() => setUseDoubleMove(!useDoubleMove)}
+                  />
                 )}
+                {actionError && <span className="turn-error">{actionError}</span>}
                 <button
                   className="btn btn-primary"
                   onClick={handleMrXMove}
@@ -380,46 +383,41 @@ export default function Game({ gameId, code, onLeave }: Props) {
         {isMyDetectiveTurn && (
           <div className="move-controls">
             <div className="move-controls-inner">
-              <p>
-                Detective {currentDetectiveIdx + 1} at station{" "}
-                <strong>{myDet?.position}</strong>
-                {selectedDetTarget === null && " — click a highlighted station"}
-              </p>
-
-              {selectedDetTarget !== null && (
-                <div className="transport-selector">
-                  <span>Move to <strong>{selectedDetTarget}</strong> via:</span>
-                  {(["taxi", "bus", "underground"] as const).map((t) => {
-                    const reachable = detReachable.get(t)?.includes(selectedDetTarget) ?? false;
-                    const hasTicket = t === "taxi" ? (myDet?.taxi ?? 0) > 0
-                      : t === "bus" ? (myDet?.bus ?? 0) > 0
-                      : (myDet?.underground ?? 0) > 0;
-                    if (!reachable || !hasTicket) return null;
-                    return (
-                      <button
-                        key={t}
-                        className={`btn transport-btn ${t} ${selectedDetTransport === t ? "selected" : ""}`}
-                        onClick={() => setSelectedDetTransport(t)}
-                      >
-                        {TRANSPORT_LABELS[t]}
-                      </button>
-                    );
-                  })}
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => { setSelectedDetTarget(null); setSelectedDetTransport(""); }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              )}
-
+              <div className="transport-selector">
+                {selectedDetTarget !== null ? (
+                  <>
+                    <span className="move-to-label">Station <strong>{selectedDetTarget}</strong>:</span>
+                    {(["taxi", "bus", "underground"] as const).map((t) => {
+                      const reachable = detReachable.get(t)?.includes(selectedDetTarget) ?? false;
+                      const ticketCount = t === "taxi" ? (myDet?.taxi ?? 0)
+                        : t === "bus" ? (myDet?.bus ?? 0)
+                        : (myDet?.underground ?? 0);
+                      if (!reachable || ticketCount === 0) return null;
+                      return (
+                        <TicketCard
+                          key={t}
+                          type={t}
+                          count={ticketCount}
+                          selected={selectedDetTransport === t}
+                          onClick={() => setSelectedDetTransport(t)}
+                        />
+                      );
+                    })}
+                    <button className="btn btn-ghost btn-sm" onClick={() => { setSelectedDetTarget(null); setSelectedDetTransport(""); }}>Cancel</button>
+                  </>
+                ) : (
+                  <span className="move-prompt">
+                    Det. {currentDetectiveIdx + 1} · Stn <strong>{myDet?.position}</strong> — click a highlighted station
+                  </span>
+                )}
+              </div>
               <div className="move-actions">
-                <div className="ticket-display">
-                  <span>🟡 {myDet?.taxi}</span>
-                  <span>🟢 {myDet?.bus}</span>
-                  <span>🔴 {myDet?.underground}</span>
+                <div className="ticket-tray">
+                  <TicketCard type="taxi" count={myDet?.taxi ?? 0} size="sm" />
+                  <TicketCard type="bus" count={myDet?.bus ?? 0} size="sm" />
+                  <TicketCard type="underground" count={myDet?.underground ?? 0} size="sm" />
                 </div>
+                {actionError && <span className="turn-error">{actionError}</span>}
                 <button
                   className="btn btn-primary"
                   onClick={handleDetMove}
@@ -427,9 +425,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
                 >
                   Confirm Move
                 </button>
-                <button className="btn btn-ghost btn-sm" onClick={handleSkip}>
-                  Skip
-                </button>
+                <button className="btn btn-ghost btn-sm" onClick={handleSkip}>Skip</button>
               </div>
             </div>
           </div>
@@ -449,10 +445,10 @@ export default function Game({ gameId, code, onLeave }: Props) {
         <MrXLog log={mrxLog ?? []} showAll={isMrX} />
         {isMrX && mrxPosition && (
           <div className="mrx-secret">
-            <span>Your position: <strong>{mrxPosition}</strong></span>
-            <div className="ticket-display">
-              <span>🖤 Black: {mrxBlackTickets}</span>
-              <span>⚡ Double: {mrxDoubleMoveTickets}</span>
+            <span className="mrx-pos-label">Position: <strong>{mrxPosition}</strong></span>
+            <div className="ticket-tray">
+              <TicketCard type="black" count={mrxBlackTickets ?? 0} size="sm" />
+              <TicketCard type="2x" count={mrxDoubleMoveTickets ?? 0} size="sm" />
             </div>
           </div>
         )}

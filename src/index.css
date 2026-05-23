@@ -324,12 +324,16 @@ html, body, #root {
 .move-controls.waiting { opacity: 0.7; }
 
 .move-controls-inner {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem;
 }
 
 .transport-selector {
-  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  display: flex; align-items: flex-end; gap: 0.5rem; flex-wrap: wrap;
 }
+
+.move-prompt { color: var(--text2); font-size: 0.85rem; }
+.move-to-label { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.mrx-pos-label { font-size: 0.85rem; }
 
 .move-actions {
   display: flex; align-items: center; gap: 0.75rem; margin-left: auto;
@@ -465,6 +469,79 @@ html, body, #root {
 .winner-icon { font-size: 4rem; }
 .finished-card h1 { font-size: 2rem; }
 .mrx-reveal { color: var(--text2); font-size: 0.9rem; }
+
+/* ─── Ticket cards ───────────────────────────────────────────────────────── */
+.ticket-card {
+  position: relative;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  padding: 0;
+  overflow: hidden;
+  display: inline-block;
+  line-height: 0;
+  flex-shrink: 0;
+}
+button.ticket-card {
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+.ticket-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.ticket-md { width: 96px; }
+.ticket-sm { width: 48px; }
+
+.ticket-count {
+  position: absolute;
+  bottom: 3px; right: 6px;
+  font-size: 0.68rem; font-weight: 900;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 0 4px #000, 0 1px 4px rgba(0,0,0,0.9);
+  pointer-events: none;
+  line-height: 1;
+}
+.ticket-sm .ticket-count { font-size: 0.58rem; bottom: 2px; right: 4px; }
+
+button.ticket-card:not(.ticket-disabled):not(.ticket-selected):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+  border-color: rgba(255,255,255,0.35);
+}
+button.ticket-card.ticket-selected {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(255,255,255,0.2);
+  border-color: rgba(255,255,255,0.8);
+}
+button.ticket-card.ticket-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ticket-tray {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-end;
+}
+
+/* ─── Ticket images in player panel & log ────────────────────────────────── */
+.ticket-mini {
+  height: 13px;
+  width: auto;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 1px;
+}
+.log-ticket-img {
+  height: 22px;
+  width: auto;
+  border-radius: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {

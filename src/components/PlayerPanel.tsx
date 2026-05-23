@@ -96,7 +96,11 @@ export default function PlayerPanel({
               <div className="detective-info">
                 <span className="det-pos">Stn {det.position}</span>
                 <span className="tickets">
-                  🟡{det.taxi} 🟢{det.bus} 🔴{det.underground}
+                  <img src="/taxi_ticket.svg" className="ticket-mini" alt="taxi" />×{det.taxi}
+                  {" "}
+                  <img src="/bus_ticket.svg" className="ticket-mini" alt="bus" />×{det.bus}
+                  {" "}
+                  <img src="/ug_ticket.svg" className="ticket-mini" alt="ug" />×{det.underground}
                 </span>
               </div>
             </div>
