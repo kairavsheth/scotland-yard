@@ -47,9 +47,9 @@ export const moveMrX = mutation({
       position: isReveal ? targetStation : undefined,
     };
 
-    let newLog = [...game.mrxLog, logEntry];
-    let newDoubleMovePending = game.doubleMovePending;
-    let nextPhase: "mrx" | "detectives" = "detectives";
+    const newLog = [...game.mrxLog, logEntry];
+    let newDoubleMovePending: boolean;
+    let nextPhase: "mrx" | "detectives";
 
     if (useDoubleMove && !game.doubleMovePending) {
       // First move of a double move

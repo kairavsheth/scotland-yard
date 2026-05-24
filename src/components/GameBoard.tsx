@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { BOARD, DETECTIVE_COLORS } from "../data/board";
 import { SVG_POSITIONS } from "../data/svgPositions";
+import React from "react";
 
 interface DetectiveState {
   position: number;

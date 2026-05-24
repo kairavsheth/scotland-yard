@@ -50,7 +50,7 @@ function AppInner({ stored, onVerified, onFailed }: {
     } else {
       onFailed();
     }
-  }, [active]);
+  }, [active, onFailed, onVerified, stored]);
 
   return <div className="loading">Rejoining game…</div>;
 }

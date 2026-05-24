@@ -172,13 +172,6 @@ function buildGraph(): Map<number, Station> {
 
 export const BOARD: Map<number, Station> = buildGraph();
 
-/** Returns stations reachable from `from` by the given transport type */
-export function getReachable(from: number, transport: Transport): number[] {
-  const s = BOARD.get(from);
-  if (!s) return [];
-  return s[transport];
-}
-
 /** All stations reachable from `from` (including via black ticket = all transports) */
 export function getAllReachable(from: number, includeWater = false): Map<Transport, number[]> {
   const s = BOARD.get(from);
@@ -191,8 +184,6 @@ export function getAllReachable(from: number, includeWater = false): Map<Transpo
   if (includeWater) result.set("water", s.water);
   return result;
 }
-
-export const DETECTIVE_STARTS = [13, 26, 29, 34, 50, 53, 91, 94, 103, 112, 117, 132, 138, 141, 155, 174, 197, 198];
 
 export const TRANSPORT_COLORS: Record<Transport | "black", string> = {
   taxi: "#d4a820",

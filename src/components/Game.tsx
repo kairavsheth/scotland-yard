@@ -38,6 +38,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const [mrxAssign, setMrxAssign] = useState<string>("");
   const [actionError, setActionError] = useState("");
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [now] = useState(() => Date.now());
 
   // ─── Heartbeat ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -75,7 +76,6 @@ export default function Game({ gameId, code, onLeave }: Props) {
     mrxDoubleMoveTickets, players, me,
   } = gameState;
 
-  const now = Date.now();
   const isMrX = me.isMrX;
   const isHost = me.isHost;
   const myDetectives = me.detectiveIndices;
