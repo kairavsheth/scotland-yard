@@ -3,8 +3,10 @@ import { useQuery } from "convex/react";
 import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { getSessionId } from "./lib/session";
+import { getPlayerName } from "./lib/playerName";
 import Lobby from "./components/Lobby";
 import Game from "./components/Game";
+import NameModal from "./components/NameModal";
 
 export interface GameInfo {
   gameId: Id<"games">;
@@ -31,7 +33,6 @@ function clearGame() {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-// Inner component that verifies the stored game is still active before showing it
 function AppInner({ stored, onVerified, onFailed }: {
   stored: GameInfo;
   onVerified: (info: GameInfo) => void;
@@ -41,11 +42,10 @@ function AppInner({ stored, onVerified, onFailed }: {
   const active = useQuery(api.games.getActiveGameForSession, { sessionId });
 
   useEffect(() => {
-    if (active === undefined) return; // still loading
+    if (active === undefined) return;
     if (active && active.gameId === stored.gameId) {
       onVerified(stored);
     } else if (active) {
-      // Player is in a different game (edge case)
       onVerified({ gameId: active.gameId, code: active.code });
     } else {
       onFailed();
@@ -58,6 +58,13 @@ function AppInner({ stored, onVerified, onFailed }: {
 export default function App() {
   const [gameInfo, setGameInfo] = useState<GameInfo | null>(null);
   const [verifying, setVerifying] = useState<GameInfo | null>(() => loadStoredGame());
+  const [playerName, setPlayerName] = useState<string | null>(() => getPlayerName());
+
+  // Pick up ?room=CODE deep links
+  const [initialCode] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") ?? "";
+  });
 
   function handleJoined(info: GameInfo) {
     saveGame(info);
@@ -70,7 +77,11 @@ export default function App() {
     setGameInfo(null);
   }
 
-  // Verifying stored session
+  // Name onboarding gate — cannot proceed without a name
+  if (!playerName) {
+    return <NameModal onSaved={setPlayerName} />;
+  }
+
   if (verifying && !gameInfo) {
     return (
       <AppInner
@@ -97,5 +108,5 @@ export default function App() {
     );
   }
 
-  return <Lobby onJoined={handleJoined} />;
+  return <Lobby onJoined={handleJoined} initialCode={initialCode} />;
 }

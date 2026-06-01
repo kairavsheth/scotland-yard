@@ -39,6 +39,8 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const [actionError, setActionError] = useState("");
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [now] = useState(() => Date.now());
+  const [codeCopied, setCodeCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // ─── Heartbeat ────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
       <div className="lobby">
         <div className="lobby-card">
           <div className="lobby-header">
-            <div className="logo">🔍</div>
+            <img src="/favicon.png" alt="Scotland Yard" className="lobby-logo-img" />
             <h1>Session not found</h1>
             <p className="subtitle">This session is no longer active.</p>
           </div>
@@ -81,6 +83,23 @@ export default function Game({ gameId, code, onLeave }: Props) {
   const myDetectives = me.detectiveIndices;
   const isMyDetectiveTurn = phase === "detectives" && myDetectives.includes(currentDetectiveIdx);
 
+  async function handleCopyCode() {
+    await navigator.clipboard.writeText(code).catch(() => {});
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  }
+
+  async function handleShareLink() {
+    const url = `${window.location.origin}${window.location.pathname}?room=${code}`;
+    if (navigator.share) {
+      navigator.share({ title: "Scotland Yard", text: `Join my game! Code: ${code}`, url }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {});
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  }
+
   async function handleEndGame() {
     try {
       await endGameMutation({ gameId, sessionId });
@@ -96,38 +115,69 @@ export default function Game({ gameId, code, onLeave }: Props) {
     return (
       <div className="lobby">
         <div className="lobby-card">
+
+          {/* Header */}
           <div className="lobby-header">
-            <div className="logo">🔍</div>
-            <h1>Room: <span className="room-code">{code}</span></h1>
-            <p className="subtitle">Share this code with your friends</p>
+            <img src="/favicon.png" alt="Scotland Yard" className="lobby-logo-img" />
+            <h1>Scotland Yard</h1>
+            <p className="subtitle">Waiting for players…</p>
           </div>
 
+          {/* Room code with copy + share */}
+          <div className="room-code-block">
+            <span className="room-code-label">Room Code</span>
+            <div className="room-code-row">
+              <span className="room-code-value">{code}</span>
+              <button
+                className={`code-action-btn${codeCopied ? " code-action-success" : ""}`}
+                onClick={handleCopyCode}
+                title="Copy code"
+              >
+                {codeCopied ? "✓ Copied" : "📋 Copy"}
+              </button>
+              <button
+                className={`code-action-btn${linkCopied ? " code-action-success" : ""}`}
+                onClick={handleShareLink}
+                title="Share link"
+              >
+                {linkCopied ? "✓ Link copied" : "🔗 Share"}
+              </button>
+            </div>
+          </div>
+
+          {/* Player list */}
           <div className="player-list">
             <h3>Players ({players?.length ?? 0} / 6)</h3>
             {players?.map((p) => (
               <div key={p._id} className={`player-row ${p.sessionId === sessionId ? "me" : ""}`}>
                 <span className="player-name">{p.name}</span>
                 {p.isHost && <span className="badge host">Host</span>}
+                {p.sessionId === sessionId && <span className="badge you">You</span>}
               </div>
             ))}
           </div>
 
+          {/* Start controls (host only) */}
           {isHost && (players?.length ?? 0) >= 2 && (
             <div className="start-section">
               <div className="form-group">
                 <label>Who is Mr. X?</label>
-                <select value={mrxAssign} onChange={(e) => setMrxAssign(e.target.value)}>
+                <select value={mrxAssign} onChange={(e) => { setMrxAssign(e.target.value); setActionError(""); }}>
                   <option value="">— Pick a player —</option>
                   {players?.map((p) => (
                     <option key={p._id} value={p.sessionId}>{p.name}</option>
                   ))}
                 </select>
               </div>
-              {actionError && <p className="error">{actionError}</p>}
+              {actionError && (
+                <div className="alert-error">
+                  <span className="alert-icon">⚠</span>{actionError}
+                </div>
+              )}
               <button
-                className="btn btn-primary"
+                className="btn btn-primary btn-full"
                 onClick={async () => {
-                  if (!mrxAssign) { setActionError("Select Mr. X first"); return; }
+                  if (!mrxAssign) { setActionError("Select who will be Mr. X first."); return; }
                   setActionError("");
                   try {
                     await startGame({ gameId, sessionId, mrxSessionId: mrxAssign });
@@ -142,11 +192,13 @@ export default function Game({ gameId, code, onLeave }: Props) {
           )}
 
           {isHost && (players?.length ?? 0) < 2 && (
-            <p className="hint">Waiting for at least 1 more player…</p>
+            <p className="hint">Waiting for at least 1 more player to join…</p>
           )}
-          {!isHost && <p className="hint">Waiting for host to start the game…</p>}
+          {!isHost && (
+            <p className="hint">Waiting for the host to start the game…</p>
+          )}
 
-          <button className="btn btn-ghost" onClick={onLeave}>Leave Room</button>
+          <button className="btn btn-ghost btn-full" onClick={onLeave}>Leave Room</button>
         </div>
       </div>
     );
