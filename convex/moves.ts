@@ -1,5 +1,5 @@
 import { mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 const REVEAL_ROUNDS = new Set([3, 8, 13, 18]);
 const MAX_ROUNDS = 22;
@@ -16,9 +16,9 @@ export const moveMrX = mutation({
   },
   handler: async (ctx, { gameId, sessionId, targetStation, transport, useDoubleMove }) => {
     const game = await ctx.db.get(gameId);
-    if (!game) throw new Error("Game not found");
-    if (game.status !== "playing") throw new Error("Game not active");
-    if (game.phase !== "mrx") throw new Error("Not Mr. X's turn");
+    if (!game) throw new ConvexError("Game not found");
+    if (game.status !== "playing") throw new ConvexError("Game not active");
+    if (game.phase !== "mrx") throw new ConvexError("Not Mr. X's turn");
 
     const player = await ctx.db
       .query("players")
@@ -26,17 +26,17 @@ export const moveMrX = mutation({
         q.eq("sessionId", sessionId).eq("gameId", gameId),
       )
       .first();
-    if (!player?.isMrX) throw new Error("You are not Mr. X");
+    if (!player?.isMrX) throw new ConvexError("You are not Mr. X");
 
     // Validate double move usage
     if (useDoubleMove && !game.doubleMovePending) {
-      if (game.mrxDoubleMoveTickets < 1) throw new Error("No double-move tickets");
+      if (game.mrxDoubleMoveTickets < 1) throw new ConvexError("No double-move tickets");
     }
 
     // Consume ticket
     let { mrxBlackTickets, mrxDoubleMoveTickets } = game;
     if (transport === "black" || transport === "ferry") {
-      if (mrxBlackTickets < 1) throw new Error("No black tickets");
+      if (mrxBlackTickets < 1) throw new ConvexError("No black tickets");
       mrxBlackTickets--;
     }
 
@@ -99,11 +99,11 @@ export const moveDetective = mutation({
   },
   handler: async (ctx, { gameId, sessionId, detectiveIdx, targetStation, transport }) => {
     const game = await ctx.db.get(gameId);
-    if (!game) throw new Error("Game not found");
-    if (game.status !== "playing") throw new Error("Game not active");
-    if (game.phase !== "detectives") throw new Error("Not detectives' turn");
+    if (!game) throw new ConvexError("Game not found");
+    if (game.status !== "playing") throw new ConvexError("Game not active");
+    if (game.phase !== "detectives") throw new ConvexError("Not detectives' turn");
     if (game.currentDetectiveIdx !== detectiveIdx) {
-      throw new Error(`It's detective ${game.currentDetectiveIdx + 1}'s turn`);
+      throw new ConvexError(`It's detective ${game.currentDetectiveIdx + 1}'s turn`);
     }
 
     const player = await ctx.db
@@ -112,24 +112,24 @@ export const moveDetective = mutation({
         q.eq("sessionId", sessionId).eq("gameId", gameId),
       )
       .first();
-    if (!player) throw new Error("Player not found");
+    if (!player) throw new ConvexError("Player not found");
     if (!player.detectiveIndices.includes(detectiveIdx)) {
-      throw new Error("You don't control this detective");
+      throw new ConvexError("You don't control this detective");
     }
 
     const det = game.detectives[detectiveIdx];
-    if (!det) throw new Error("Detective not found");
+    if (!det) throw new ConvexError("Detective not found");
 
     // Validate ticket availability
-    if (transport === "taxi" && det.taxi < 1) throw new Error("No taxi tickets");
-    if (transport === "bus" && det.bus < 1) throw new Error("No bus tickets");
-    if (transport === "underground" && det.underground < 1) throw new Error("No underground tickets");
+    if (transport === "taxi" && det.taxi < 1) throw new ConvexError("No taxi tickets");
+    if (transport === "bus" && det.bus < 1) throw new ConvexError("No bus tickets");
+    if (transport === "underground" && det.underground < 1) throw new ConvexError("No underground tickets");
 
     // Check another detective isn't already there
     const blocked = game.detectives.some(
       (d, i) => i !== detectiveIdx && d.position === targetStation,
     );
-    if (blocked) throw new Error("Another detective is already there");
+    if (blocked) throw new ConvexError("Another detective is already there");
 
     // Update detective position and tickets
     const newDetectives = game.detectives.map((d, i) => {
@@ -201,10 +201,10 @@ export const skipDetective = mutation({
   },
   handler: async (ctx, { gameId, sessionId, detectiveIdx }) => {
     const game = await ctx.db.get(gameId);
-    if (!game) throw new Error("Game not found");
-    if (game.status !== "playing") throw new Error("Game not active");
-    if (game.phase !== "detectives") throw new Error("Not detectives' turn");
-    if (game.currentDetectiveIdx !== detectiveIdx) throw new Error("Not this detective's turn");
+    if (!game) throw new ConvexError("Game not found");
+    if (game.status !== "playing") throw new ConvexError("Game not active");
+    if (game.phase !== "detectives") throw new ConvexError("Not detectives' turn");
+    if (game.currentDetectiveIdx !== detectiveIdx) throw new ConvexError("Not this detective's turn");
 
     const player = await ctx.db
       .query("players")
@@ -212,7 +212,7 @@ export const skipDetective = mutation({
         q.eq("sessionId", sessionId).eq("gameId", gameId),
       )
       .first();
-    if (!player?.detectiveIndices.includes(detectiveIdx)) throw new Error("Not your detective");
+    if (!player?.detectiveIndices.includes(detectiveIdx)) throw new ConvexError("Not your detective");
 
     const nextDetectiveIdx = detectiveIdx + 1;
     if (nextDetectiveIdx >= 5) {

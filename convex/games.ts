@@ -1,5 +1,5 @@
 import { mutation, query } from "./_generated/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 const REVEAL_ROUNDS = new Set([3, 8, 13, 18]);
 
@@ -103,15 +103,15 @@ export const joinGame = mutation({
       .query("games")
       .withIndex("by_code", (q) => q.eq("code", code.toUpperCase()))
       .first();
-    if (!game) throw new Error("Room not found");
-    if (game.status !== "lobby") throw new Error("Game already started");
+    if (!game) throw new ConvexError("Room not found");
+    if (game.status !== "lobby") throw new ConvexError("Game already started");
 
     const players = await ctx.db
       .query("players")
       .withIndex("by_game", (q) => q.eq("gameId", game._id))
       .collect();
 
-    if (players.length >= 6) throw new Error("Room is full (max 6 players)");
+    if (players.length >= 6) throw new ConvexError("Room is full (max 6 players)");
 
     // Check if already in the game
     const existing = players.find((p) => p.sessionId === sessionId);
@@ -138,8 +138,8 @@ export const startGame = mutation({
   },
   handler: async (ctx, { gameId, sessionId, mrxSessionId }) => {
     const game = await ctx.db.get(gameId);
-    if (!game) throw new Error("Game not found");
-    if (game.status !== "lobby") throw new Error("Game already started");
+    if (!game) throw new ConvexError("Game not found");
+    if (game.status !== "lobby") throw new ConvexError("Game already started");
 
     const players = await ctx.db
       .query("players")
@@ -147,11 +147,11 @@ export const startGame = mutation({
       .collect();
 
     const host = players.find((p) => p.sessionId === sessionId);
-    if (!host?.isHost) throw new Error("Only the host can start the game");
-    if (players.length < 2) throw new Error("Need at least 2 players");
+    if (!host?.isHost) throw new ConvexError("Only the host can start the game");
+    if (players.length < 2) throw new ConvexError("Need at least 2 players");
 
     const mrxPlayer = players.find((p) => p.sessionId === mrxSessionId);
-    if (!mrxPlayer) throw new Error("Mr. X player not found");
+    if (!mrxPlayer) throw new ConvexError("Mr. X player not found");
 
     const detectives = players.filter((p) => p.sessionId !== mrxSessionId);
 
@@ -260,7 +260,7 @@ export const endGame = mutation({
         q.eq("sessionId", sessionId).eq("gameId", gameId),
       )
       .first();
-    if (!player) throw new Error("Not in this game");
+    if (!player) throw new ConvexError("Not in this game");
 
     await ctx.db.patch(gameId, { status: "finished" });
   },

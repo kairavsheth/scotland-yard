@@ -3,6 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { getSessionId } from "../lib/session";
 import { getPlayerName } from "../lib/playerName";
+import { extractError } from "../lib/errors";
 import type { GameInfo } from "../App";
 
 interface Props {
@@ -37,7 +38,7 @@ export default function Lobby({ onJoined, initialCode = "" }: Props) {
       const result = await createGame({ sessionId, playerName });
       onJoined({ gameId: result.gameId, code: result.code });
     } catch (e: unknown) {
-      setCreateError(e instanceof Error ? e.message : "Failed to create game");
+      setCreateError(extractError(e, "Failed to create game"));
     } finally {
       setLoading(null);
     }
@@ -55,8 +56,7 @@ export default function Lobby({ onJoined, initialCode = "" }: Props) {
       const result = await joinGame({ sessionId, playerName, code });
       onJoined({ gameId: result.gameId, code: result.code });
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : "Failed to join";
-      setJoinError(friendlyJoinError(msg, code));
+      setJoinError(friendlyJoinError(extractError(e, "Failed to join"), code));
     } finally {
       setLoading(null);
     }

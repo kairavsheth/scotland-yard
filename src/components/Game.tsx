@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { getSessionId } from "../lib/session";
+import { extractError } from "../lib/errors";
 import { getAllReachable } from "../data/board";
 import type { Transport } from "../data/board";
 import GameBoard from "./GameBoard";
@@ -105,7 +106,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
       await endGameMutation({ gameId, sessionId });
       onLeave();
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : "Failed to end game");
+      setActionError(extractError(e, "Failed to end game"));
     }
   }
 
@@ -182,7 +183,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
                   try {
                     await startGame({ gameId, sessionId, mrxSessionId: mrxAssign });
                   } catch (e: unknown) {
-                    setActionError(e instanceof Error ? e.message : "Error starting game");
+                    setActionError(extractError(e, "Error starting game"));
                   }
                 }}
               >
@@ -258,7 +259,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
       setSelectedTransport("");
       setUseDoubleMove(false);
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : "Move failed");
+      setActionError(extractError(e, "Move failed"));
     }
   }
 
@@ -273,7 +274,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
       setSelectedDetTarget(null);
       setSelectedDetTransport("");
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : "Move failed");
+      setActionError(extractError(e, "Move failed"));
     }
   }
 
@@ -282,7 +283,7 @@ export default function Game({ gameId, code, onLeave }: Props) {
     try {
       await skipDetective({ gameId, sessionId, detectiveIdx: myDetIndex });
     } catch (e: unknown) {
-      setActionError(e instanceof Error ? e.message : "Skip failed");
+      setActionError(extractError(e, "Skip failed"));
     }
   }
 
